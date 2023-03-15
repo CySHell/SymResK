@@ -115,14 +115,19 @@ Return Value:
         goto Cleanup;
     }
 
-    UNICODE_STRING PdbUrl = { 0 };// = (PUNICODE_STRING)ExAllocatePool2(NonPagedPool, sizeof(UNICODE_STRING), POOL_TAG);
-    WCHAR PdbUrlBuffer[MAX_URL_LENGTH];
-    RtlInitEmptyUnicodeString(&PdbUrl, PdbUrlBuffer, MAX_URL_LENGTH);
-    //PdbUrl->Length = 0;
-    //PdbUrl->MaximumLength = MAX_URL_LENGTH;
-    //PdbUrl->Buffer = ExAllocatePool2(PagedPool, MAX_URL_LENGTH, POOL_TAG);
+    //UNICODE_STRING PdbUrl = { 0 };
+    //WCHAR PdbUrlBuffer[MAX_URL_LENGTH];
+    //RtlInitEmptyUnicodeString(&PdbUrl, PdbUrlBuffer, MAX_URL_LENGTH);
+    PUNICODE_STRING PdbUrl = (PUNICODE_STRING)ExAllocatePool2(PagedPool, sizeof(UNICODE_STRING), POOL_TAG);
+    if (PdbUrl == NULL)
+    {
+        return status;
+    }
+    PdbUrl->Length = 0;
+    PdbUrl->MaximumLength = MAX_URL_LENGTH;
+    PdbUrl->Buffer = ExAllocatePool2(PagedPool, MAX_URL_LENGTH, POOL_TAG);
     
-    if (!GetPdbUrl(&PdbUrl, &g_FileName))
+    if (!GetPdbUrl(PdbUrl, &g_FileName))
     {
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "GetPdbUrl failed");
         status = -1;

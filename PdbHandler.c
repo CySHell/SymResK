@@ -86,8 +86,6 @@ BOOLEAN ParseRsdsHeader(IN PHANDLE phFile, IN ULONG RsdsHeaderOffset, IN ULONG S
 		return FALSE;
 	}
 
-	//pPdbFileName[SizeOfHeader - sizeof(RSDS_PDB_HEADER) + 1] = '\x0';
-
 	return TRUE;
 }
 
@@ -182,10 +180,10 @@ BOOLEAN GetNtHeader(IN PHANDLE phFile, IMAGE_NT_HEADERS* pNTHeader)
 	return TRUE;
 }
 
-BOOLEAN ConvertGuidToWString(GUID Guid, CHAR *GuidString)
+BOOLEAN ConvertGuidToWString(GUID Guid, WCHAR *GuidString)
 {
-	if (sprintf_s(GuidString, (sizeof(GUID) * 2) + 2, "%8X%4X%4X%2X%2X%2X%2X%2X%2X%2X%2X",
-		(UINT32)Guid.Data1, Guid.Data2, Guid.Data3,
+	if (swprintf_s(GuidString, sizeof(GUID) * 2 * sizeof(WCHAR), L"%08X%04X%04X%02X%02X%02X%02X%02X%02X%02X%02X",
+		Guid.Data1, Guid.Data2, Guid.Data3,
 		Guid.Data4[0], Guid.Data4[1], Guid.Data4[2], Guid.Data4[3],
 		Guid.Data4[4], Guid.Data4[5], Guid.Data4[6], Guid.Data4[7]))
 	{
@@ -199,7 +197,7 @@ BOOLEAN ComposeFullPdbUrl(OUT PUNICODE_STRING PdbUrl, IN RSDS_PDB_HEADER* pRsdsH
 	NTSTATUS Status;
 	ANSI_STRING aPdbFileName;
 	UNICODE_STRING uPdbFileName;
-	UNICODE_STRING GuidString;
+	WCHAR GuidWString[0x20];
 
 	// https://msdl.microsoft.com/download/symbols/
 	Status = RtlAppendUnicodeToString(PdbUrl, SYMBOL_SERVER_BASE);
@@ -226,15 +224,14 @@ BOOLEAN ComposeFullPdbUrl(OUT PUNICODE_STRING PdbUrl, IN RSDS_PDB_HEADER* pRsdsH
 			RtlAppendUnicodeToString(PdbUrl, L"/");
 
 			// https://msdl.microsoft.com/download/symbols/<PdbFileName>/<PdbGUID>
-			Status = RtlStringFromGUID(&pRsdsHeader->PdbGuid, &GuidString);
 
-			CHAR GuidWString[0x20];
+			
 			ConvertGuidToWString(pRsdsHeader->PdbGuid, GuidWString);
 
 			if (NT_SUCCESS(Status))
 			{
-				RtlAppendUnicodeStringToString(PdbUrl, &GuidString);
-
+				RtlAppendUnicodeToString(PdbUrl, (WCHAR*) & GuidWString);
+				
 				// https://msdl.microsoft.com/download/symbols/<PdbFileName>/<PdbGUID>/
 				RtlAppendUnicodeToString(PdbUrl, L"/");
 

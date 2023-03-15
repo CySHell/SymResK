@@ -2,7 +2,7 @@
 
 Module Name:
 
-    device.c - Device handling events for example driver.
+    device.c - Device handling events for driver.
 
 Abstract:
 
