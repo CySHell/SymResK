@@ -59,3 +59,9 @@ WskInitNpi()
     WskProviderNpiInitialized = TRUE;
     return status;
 }
+
+
+NTSTATUS DownloadPdb(PUNICODE_STRING PdbUrl)
+{
+
+}

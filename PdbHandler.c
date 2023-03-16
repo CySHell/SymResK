@@ -1,6 +1,9 @@
 #include "Driver.h"
 
+
 #define RSDS_MAGIC 0x53445352  // "RSDS"
+#define GUID_WCHAR_STRING_LENGTH (sizeof(GUID) * 2 * sizeof(WCHAR))
+
 typedef struct _RSDS_PDB_HEADER
 {
 	UINT32 Magic;
@@ -102,13 +105,6 @@ BOOLEAN GetRsdsPdbEntry(IN PHANDLE phFile, IN IMAGE_NT_HEADERS* pNTHeader, OUT R
 	DbgDirOffset.QuadPart = pNTHeader->OptionalHeader.DataDirectory[6].VirtualAddress;
 	DbgDirCount = pNTHeader->OptionalHeader.DataDirectory[6].Size / sizeof(IMAGE_DEBUG_DIRECTORY);
 
-	/*
-	DbgDir = ExAllocatePool2(PagedPool, DbgDirCount * sizeof(IMAGE_DEBUG_DIRECTORY), POOL_TAG);
-	*/
-
-	//Status = ReadFileContent(phFile, DbgDirOffset, DbgDir, DbgDirCount * sizeof(IMAGE_DEBUG_DIRECTORY));
-
-
 	for (UINT32 i = 0; i < DbgDirCount; i++)
 	{
 		DbgDirOffset.QuadPart += (LONGLONG)(sizeof(IMAGE_DEBUG_DIRECTORY) * i);
@@ -180,12 +176,13 @@ BOOLEAN GetNtHeader(IN PHANDLE phFile, IMAGE_NT_HEADERS* pNTHeader)
 	return TRUE;
 }
 
-BOOLEAN ConvertGuidToWString(GUID Guid, WCHAR *GuidString)
+BOOLEAN ConvertGuidToWString(GUID* Guid, WCHAR *GuidString)
 {
-	if (swprintf_s(GuidString, sizeof(GUID) * 2 * sizeof(WCHAR), L"%08X%04X%04X%02X%02X%02X%02X%02X%02X%02X%02X",
-		Guid.Data1, Guid.Data2, Guid.Data3,
-		Guid.Data4[0], Guid.Data4[1], Guid.Data4[2], Guid.Data4[3],
-		Guid.Data4[4], Guid.Data4[5], Guid.Data4[6], Guid.Data4[7]))
+
+	if (swprintf_s(GuidString, GUID_WCHAR_STRING_LENGTH, L"%08X%04X%04X%02X%02X%02X%02X%02X%02X%02X%02X",
+		Guid->Data1, Guid->Data2, Guid->Data3,
+		Guid->Data4[0], Guid->Data4[1], Guid->Data4[2], Guid->Data4[3],
+		Guid->Data4[4], Guid->Data4[5], Guid->Data4[6], Guid->Data4[7]))
 	{
 		return TRUE;
 	}
@@ -195,9 +192,9 @@ BOOLEAN ConvertGuidToWString(GUID Guid, WCHAR *GuidString)
 BOOLEAN ComposeFullPdbUrl(OUT PUNICODE_STRING PdbUrl, IN RSDS_PDB_HEADER* pRsdsHeader, IN PCHAR pPdbFileName)
 {
 	NTSTATUS Status;
-	ANSI_STRING aPdbFileName;
-	UNICODE_STRING uPdbFileName;
-	WCHAR GuidWString[0x20];
+	ANSI_STRING aPdbFileName = { 0 };
+	UNICODE_STRING uPdbFileName = { 0 };
+	WCHAR GuidWString[0x21]; // 0x20 + 1 for the null terminator
 
 	// https://msdl.microsoft.com/download/symbols/
 	Status = RtlAppendUnicodeToString(PdbUrl, SYMBOL_SERVER_BASE);
@@ -213,9 +210,9 @@ BOOLEAN ComposeFullPdbUrl(OUT PUNICODE_STRING PdbUrl, IN RSDS_PDB_HEADER* pRsdsH
 		{
 			RtlInitAnsiString(&aPdbFileName,strrchr(pPdbFileName, '/'));
 		}
-
-		RtlInitUnicodeString(&uPdbFileName, NULL);
+		
 		RtlAnsiStringToUnicodeString(&uPdbFileName, &aPdbFileName, TRUE);
+		
 		Status = RtlAppendUnicodeStringToString(PdbUrl, &uPdbFileName);
 
 		if (NT_SUCCESS(Status))
@@ -226,7 +223,7 @@ BOOLEAN ComposeFullPdbUrl(OUT PUNICODE_STRING PdbUrl, IN RSDS_PDB_HEADER* pRsdsH
 			// https://msdl.microsoft.com/download/symbols/<PdbFileName>/<PdbGUID>
 
 			
-			ConvertGuidToWString(pRsdsHeader->PdbGuid, GuidWString);
+			ConvertGuidToWString(&pRsdsHeader->PdbGuid, (WCHAR*)&GuidWString);
 
 			if (NT_SUCCESS(Status))
 			{

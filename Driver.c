@@ -85,6 +85,9 @@ Return Value:
     NTSTATUS status;
     WDF_OBJECT_ATTRIBUTES attributes;
 
+    PUNICODE_STRING PdbUrl = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(UNICODE_STRING), POOL_TAG);
+    PWCH PdbUrlBuffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_URL_LENGTH, POOL_TAG);
+
     //
     // Register a cleanup callback so that we can call WPP_CLEANUP when
     // the framework driver object is deleted during driver unload.
@@ -115,17 +118,19 @@ Return Value:
         goto Cleanup;
     }
 
-    //UNICODE_STRING PdbUrl = { 0 };
-    //WCHAR PdbUrlBuffer[MAX_URL_LENGTH];
-    //RtlInitEmptyUnicodeString(&PdbUrl, PdbUrlBuffer, MAX_URL_LENGTH);
-    PUNICODE_STRING PdbUrl = (PUNICODE_STRING)ExAllocatePool2(PagedPool, sizeof(UNICODE_STRING), POOL_TAG);
-    if (PdbUrl == NULL)
+    if (PdbUrl != NULL && PdbUrlBuffer != NULL)
     {
-        return status;
+        PdbUrl->Length = 0;
+        PdbUrl->MaximumLength = MAX_URL_LENGTH;
+        PdbUrl->Buffer = PdbUrlBuffer;
     }
-    PdbUrl->Length = 0;
-    PdbUrl->MaximumLength = MAX_URL_LENGTH;
-    PdbUrl->Buffer = ExAllocatePool2(PagedPool, MAX_URL_LENGTH, POOL_TAG);
+    else
+    {
+		DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "PdbUrl String allocation failed");
+		status = -1;
+        return status;
+	}
+   
     
     if (!GetPdbUrl(PdbUrl, &g_FileName))
     {
@@ -135,7 +140,9 @@ Return Value:
     }
 
 
-    Cleanup:
+Cleanup:
+    ExFreePoolWithTag(PdbUrl, POOL_TAG);
+    ExFreePoolWithTag(PdbUrlBuffer, POOL_TAG);
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s Exit", __func__);
     return status;
 
