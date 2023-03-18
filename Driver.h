@@ -52,6 +52,13 @@ EXTERN_C_END
 
 NTSTATUS WskInit();
 NTSTATUS WskInitNpi();
+VOID WskCleanup();
+NTSTATUS WskCreateSocket(
+    _In_ ADDRESS_FAMILY AddressFamily,
+    _In_ USHORT SocketType,
+    _In_ ULONG Protocol,
+    _Out_ PWSK_SOCKET * Socket
+);
 BOOLEAN GetPdbUrl(OUT PUNICODE_STRING PdbUrl, IN PUNICODE_STRING FileName);
 
 

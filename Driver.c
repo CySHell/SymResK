@@ -204,4 +204,6 @@ Return Value:
 
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s Entry", __func__);
 
+    WskCleanup();
+
 }

@@ -25,6 +25,7 @@
     <ClCompile Include="Device.c" />
     <ClCompile Include="Driver.c" />
     <ClCompile Include="Networking.c" />
+    <ClCompile Include="PdbDownloader.c" />
     <ClCompile Include="PdbHandler.c" />
     <ClCompile Include="Queue.c" />
   </ItemGroup>
