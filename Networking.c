@@ -34,6 +34,9 @@ WskInitNpi()
 {
     NTSTATUS status;
 
+    // WskCaptureProviderNPI() must be called at PASSIVE_LEVEL IRQL
+    PAGED_CODE()
+
     // Capture the WSK Provider NPI. If WSK subsystem is not ready yet,
     // wait until it becomes ready.
     status = WskCaptureProviderNPI(
@@ -58,4 +61,47 @@ WskInitNpi()
 
     WskProviderNpiInitialized = TRUE;
     return status;
+}
+
+
+// WSK application routine that releases the WSK Provider NPI
+// and deregisters the WSK application
+VOID WskCleanup()
+{
+	// Release the WSK Provider NPI
+    if (WskProviderNpiInitialized) {
+		WskReleaseProviderNPI(&wskProviderNpi);
+		WskProviderNpiInitialized = FALSE;
+	}
+	// Deregister the WSK application
+	WskDeregister(&WskRegistration);
+}
+
+
+// WSK application routine that creates a WSK socket
+NTSTATUS WskCreateSocket(
+    _In_ ADDRESS_FAMILY AddressFamily,
+    _In_ USHORT SocketType,
+    _In_ ULONG Protocol,
+    _Out_ PWSK_SOCKET* Socket
+)
+{
+	NTSTATUS status;
+    wskProviderNpi.Dispatch->WskSocket(
+		wskProviderNpi.Client,
+		AddressFamily,
+		SocketType,
+		Protocol,
+		WSK_FLAG_LISTEN_SOCKET,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		Socket,
+		NULL,
+		NULL,
+		&status
+	);
+
 }
