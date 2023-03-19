@@ -13,12 +13,6 @@ typedef struct _RSDS_PDB_HEADER
 
 
 
-//
-//	Symbol Server Url format
-//
-#define SYMBOL_SERVER_BASE L"https://msdl.microsoft.com/download/symbols/"
-
-
 NTSTATUS ReadFileContent(IN PHANDLE phFile, LARGE_INTEGER Offset, PVOID Buffer, ULONG BufferSize)
 {
 	NTSTATUS Status;

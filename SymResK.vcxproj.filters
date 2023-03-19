@@ -56,5 +56,8 @@
     <ClCompile Include="PdbHandler.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PdbDownloader.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

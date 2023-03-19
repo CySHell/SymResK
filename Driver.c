@@ -179,7 +179,6 @@ Return Value:
     PAGED_CODE();
 
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s Entry", __func__);
-
     status = SymResKCreateDevice(DeviceInit);
 
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s Exit", __func__);
@@ -211,5 +210,7 @@ Return Value:
     PAGED_CODE();
 
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s Entry", __func__);
+
+    WskCleanup();
 
 }
