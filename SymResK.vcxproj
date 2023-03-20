@@ -28,12 +28,14 @@
     <ClCompile Include="PdbDownloader.c" />
     <ClCompile Include="PdbHandler.c" />
     <ClCompile Include="Queue.c" />
+    <ClCompile Include="Utils.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Device.h" />
     <ClInclude Include="Driver.h" />
     <ClInclude Include="Public.h" />
     <ClInclude Include="Queue.h" />
+    <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <Inf Include="SymResK.inf" />
