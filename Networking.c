@@ -9,8 +9,6 @@ extern BOOLEAN WskProviderNpiInitialized;
 
 NTSTATUS WskInit()
 {
-
-
     NTSTATUS status;
     WSK_CLIENT_NPI wskClientNpi;
 
@@ -19,7 +17,8 @@ NTSTATUS WskInit()
     wskClientNpi.Dispatch = &WskAppDispatch;
     status = WskRegister(&wskClientNpi, &WskRegistration);
 
-    if (!NT_SUCCESS(status)) {
+    if (!NT_SUCCESS(status)) 
+    {
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "WskRegister failed %d", status);
         return status;
     }
@@ -64,6 +63,7 @@ WskInitNpi()
 }
 
 
+
 // WSK application routine that releases the WSK Provider NPI
 // and deregisters the WSK application
 VOID WskCleanup()
@@ -78,30 +78,161 @@ VOID WskCleanup()
 }
 
 
+NTSTATUS SrkGetAddrInfo(IN PUNICODE_STRING NodeName,
+    IN PUNICODE_STRING ServiceName,
+    IN PADDRINFOEXW Hints,
+    OUT PADDRINFOEXW* Result)
+{
+    NTSTATUS Status;
+
+    //
+    // Allocate async context.
+    //
+
+    SRK_ASYNC_CONTEXT AsyncContext;
+    Status = KspAsyncContextAllocate(&AsyncContext);
+
+    if (!NT_SUCCESS(Status))
+    {
+        return Status;
+    }
+
+    //
+    // Call the WSK API.
+    //
+
+    Status = wskProviderNpi.Dispatch->WskGetAddressInfo(
+        wskProviderNpi.Client,         // Client
+        NodeName,                   // NodeName
+        ServiceName,                // ServiceName
+        0,                          // NameSpace
+        NULL,                       // Provider
+        Hints,                      // Hints
+        Result,                     // Result
+        NULL,                       // OwningProcess
+        NULL,                       // OwningThread
+        AsyncContext.Irp            // Irp
+    );
+
+    SrkAsyncContextWaitForCompletion(&AsyncContext, &Status);
+
+    //
+    // Free the async context.
+    //
+
+    SrkAsyncContextFree(&AsyncContext);
+
+    return Status;
+}
+
+
+
 // WSK application routine that creates a WSK socket
-NTSTATUS WskCreateSocket(
-    _In_ ADDRESS_FAMILY AddressFamily,
-    _In_ USHORT SocketType,
-    _In_ ULONG Protocol,
-    _Out_ PWSK_SOCKET* Socket
+NTSTATUS WskCreateSocketAndConnect(
+    IN PADDRINFOEXW RemoteAddrInfo,
+    OUT PWSK_SOCKET Socket
 )
 {
-	NTSTATUS status;
-    wskProviderNpi.Dispatch->WskSocket(
-		wskProviderNpi.Client,
-		AddressFamily,
-		SocketType,
-		Protocol,
-        WSK_FLAG_CONNECTION_SOCKET,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		Socket,
-		NULL,
-		NULL,
-		&status
-	);
+    NTSTATUS Status;
+    SOCKADDR_IN LocalAddress, RemoteAddr;
 
+    RemoteAddr = *(struct sockaddr_in*)RemoteAddrInfo->ai_addr;
+    RemoteAddr.sin_port = SYMBOL_SERVER_REMOTE_PORT;
+
+    LocalAddress.sin_family = AF_INET;
+    LocalAddress.sin_addr.s_addr = INADDR_ANY;
+
+   //
+   // Allocate async context.
+   //
+
+    SRK_ASYNC_CONTEXT AsyncContext;
+    Status = KspAsyncContextAllocate(&AsyncContext);
+
+    if (!NT_SUCCESS(Status))
+    {
+        return Status;
+    }
+
+    //
+    // Call the WSK API.
+    //
+    wskProviderNpi.Dispatch->WskSocketConnect(
+		wskProviderNpi.Client,RemoteAddrInfo->ai_socktype,RemoteAddrInfo->ai_protocol,&LocalAddress, &RemoteAddr, NULL, NULL, NULL, NULL,NULL, NULL,AsyncContext.Irp);
+	
+    SrkAsyncContextWaitForCompletion(&AsyncContext, &Status);
+
+    if (!NT_SUCCESS(Status))
+    {
+		DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "WskSocketConnect failed %d", Status);
+		goto Cleanup;
+	}
+
+    Socket = (PWSK_SOCKET)AsyncContext.Irp->IoStatus.Information;
+
+    //
+    // Free the async context.
+    //
+
+    SrkAsyncContextFree(&AsyncContext);
+
+
+    Cleanup:
+    return Status;
+
+}
+
+NTSTATUS WskSendReceiveData(PWSK_SOCKET Socket, PWSK_BUF SendBuf, PWSK_BUF RecvBuf)
+{
+    NTSTATUS Status;
+    WSK_PROVIDER_CONNECTION_DISPATCH ConnDispatch = *((WSK_PROVIDER_CONNECTION_DISPATCH*)Socket->Dispatch);
+
+    if (ConnDispatch.WskSend == NULL || ConnDispatch.WskReceive == NULL)
+    {
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s: The WSK_SOCKET does NOT contain the Send\Recv functions.", __func__);
+        goto Cleanup;
+    }
+
+    //
+    // Allocate async context.
+    //
+
+    SRK_ASYNC_CONTEXT AsyncContext;
+    Status = KspAsyncContextAllocate(&AsyncContext);
+
+    if (!NT_SUCCESS(Status))
+    {
+        return Status;
+    }
+
+    //
+    // Call the WSK API.
+    //
+    Status = ConnDispatch.WskSend(Socket, SendBuf, WSK_FLAG_NODELAY, &AsyncContext);
+
+    SrkAsyncContextWaitForCompletion(&AsyncContext, &Status);
+
+    if (!NT_SUCCESS(Status))
+    {
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s: WskSend failed %d", __func__, Status);
+        goto Cleanup;
+    }
+
+    SrkAsyncContextReset(&AsyncContext);
+    Status = ConnDispatch.WskReceive(Socket, RecvBuf, WSK_FLAG_WAITALL, &AsyncContext);
+
+    if (!NT_SUCCESS(Status))
+    {
+		DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL, "%s: WskReceive failed %d", __func__, Status);
+		goto Cleanup;
+	}
+
+    //
+    // Free the async context.
+    //
+
+    SrkAsyncContextFree(&AsyncContext);
+
+    Cleanup:
+    return Status;
 }
